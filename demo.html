@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Carota Interactive Demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { margin-top: 0; }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .toolbar {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-bottom: none;
+      padding: 8px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar button {
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      background: #fff;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .toolbar button:hover {
+      background: #e8e8e8;
+    }
+    .toolbar button.active {
+      background: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    .toolbar select, .toolbar input[type="color"] {
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .toolbar label {
+      font-size: 12px;
+      color: #666;
+    }
+    .toolbar .separator {
+      width: 1px;
+      height: 24px;
+      background: #ccc;
+      margin: 0 4px;
+    }
+    #editor-container {
+      background: #fff;
+      border: 1px solid #ccc;
+      min-height: 300px;
+      position: relative;
+    }
+    #editor-container canvas {
+      display: block;
+    }
+    .info {
+      margin-top: 20px;
+      padding: 15px;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .info h3 { margin-top: 0; }
+    .info pre {
+      background: #f0f0f0;
+      padding: 10px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    #status {
+      font-size: 12px;
+      color: #666;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Carota Interactive Editor</h1>
+
+    <div class="toolbar">
+      <button id="btn-bold" title="Bold (Cmd+B)"><b>B</b></button>
+      <button id="btn-italic" title="Italic (Cmd+I)"><i>I</i></button>
+      <button id="btn-underline" title="Underline (Cmd+U)"><u>U</u></button>
+      <button id="btn-strike" title="Strikethrough"><s>S</s></button>
+
+      <div class="separator"></div>
+
+      <label>Size:</label>
+      <select id="font-size">
+        <option value="10">10pt</option>
+        <option value="12">12pt</option>
+        <option value="14">14pt</option>
+        <option value="16" selected>16pt</option>
+        <option value="18">18pt</option>
+        <option value="24">24pt</option>
+        <option value="32">32pt</option>
+        <option value="48">48pt</option>
+      </select>
+
+      <label>Font:</label>
+      <select id="font-family">
+        <option value="Arial" selected>Arial</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Courier New">Courier New</option>
+        <option value="Verdana">Verdana</option>
+      </select>
+
+      <label>Color:</label>
+      <input type="color" id="font-color" value="#000000">
+
+      <div class="separator"></div>
+
+      <button id="btn-undo" title="Undo (Cmd+Z)">Undo</button>
+      <button id="btn-redo" title="Redo (Cmd+Shift+Z)">Redo</button>
+
+      <div class="separator"></div>
+
+      <label>Align:</label>
+      <button id="btn-align-left" title="Align Left">⬅</button>
+      <button id="btn-align-center" title="Align Center">⬌</button>
+      <button id="btn-align-right" title="Align Right">➡</button>
+      <button id="btn-align-justify" title="Justify">☰</button>
+    </div>
+
+    <div id="editor-container"></div>
+
+    <div id="status">Click in the editor to start typing...</div>
+
+    <div class="info">
+      <h3>How to use:</h3>
+      <ul>
+        <li><b>Click</b> in the editor to position cursor</li>
+        <li><b>Click and drag</b> to select text</li>
+        <li><b>Double-click</b> to select a word</li>
+        <li><b>Type</b> to insert text</li>
+        <li><b>Select text</b> then click a style button to apply formatting</li>
+        <li>Keyboard: <b>Cmd+B</b> (bold), <b>Cmd+I</b> (italic), <b>Cmd+U</b> (underline)</li>
+        <li>Keyboard: <b>Cmd+Z</b> (undo), <b>Cmd+Shift+Z</b> (redo)</li>
+      </ul>
+
+      <h3>Document JSON:</h3>
+      <pre id="json-output">[]</pre>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createEditor } from './dist/carota.js';
+
+    const container = document.getElementById('editor-container');
+    const status = document.getElementById('status');
+    const jsonOutput = document.getElementById('json-output');
+
+    // Create editor
+    const editor = createEditor({
+      element: container,
+      width: container.clientWidth,
+    });
+
+    // Load initial content
+    editor.load([
+      { text: 'Welcome to ', size: 24 },
+      { text: 'Carota', size: 24, bold: true, color: '#007bff' },
+      { text: '!', size: 24 },
+      { text: '\n\n' },
+      { text: 'This is a rich text editor that renders directly to HTML Canvas. ' },
+      { text: 'Try selecting some text and applying styles using the toolbar above.\n\n' },
+      { text: 'You can make text ' },
+      { text: 'bold', bold: true },
+      { text: ', ' },
+      { text: 'italic', italic: true },
+      { text: ', ' },
+      { text: 'underlined', underline: true },
+      { text: ', or ' },
+      { text: 'colored', color: '#e74c3c' },
+      { text: '.' },
+    ]);
+
+    // Toolbar buttons
+    const btnBold = document.getElementById('btn-bold');
+    const btnItalic = document.getElementById('btn-italic');
+    const btnUnderline = document.getElementById('btn-underline');
+    const btnStrike = document.getElementById('btn-strike');
+    const fontSize = document.getElementById('font-size');
+    const fontFamily = document.getElementById('font-family');
+    const fontColor = document.getElementById('font-color');
+    const btnUndo = document.getElementById('btn-undo');
+    const btnRedo = document.getElementById('btn-redo');
+
+    // Toggle formatting
+    function toggleFormat(attr) {
+      const formatting = editor.selectedRange().getFormatting();
+      const newValue = formatting[attr] !== true;
+      editor.selectedRange().setFormatting(attr, newValue);
+      updateToolbar();
+      updateJson();
+    }
+
+    // Set formatting value
+    function setFormat(attr, value) {
+      editor.selectedRange().setFormatting(attr, value);
+      updateJson();
+    }
+
+    // Update toolbar state based on selection
+    function updateToolbar() {
+      const formatting = editor.selectedRange().getFormatting();
+
+      btnBold.classList.toggle('active', formatting.bold === true);
+      btnItalic.classList.toggle('active', formatting.italic === true);
+      btnUnderline.classList.toggle('active', formatting.underline === true);
+      btnStrike.classList.toggle('active', formatting.strikeout === true);
+
+      // Only set values if they're not Symbols (mixed values)
+      // When selection spans multiple formats, these return Symbol('multipleValues')
+      if (formatting.size && typeof formatting.size === 'number') {
+        fontSize.value = formatting.size;
+      }
+      if (formatting.font && typeof formatting.font === 'string') {
+        fontFamily.value = formatting.font;
+      }
+      if (formatting.color && typeof formatting.color === 'string') {
+        fontColor.value = formatting.color;
+      }
+
+      // Update alignment buttons
+      const alignLeft = document.getElementById('btn-align-left');
+      const alignCenter = document.getElementById('btn-align-center');
+      const alignRight = document.getElementById('btn-align-right');
+      const alignJustify = document.getElementById('btn-align-justify');
+
+      alignLeft.classList.toggle('active', formatting.align === 'left');
+      alignCenter.classList.toggle('active', formatting.align === 'center');
+      alignRight.classList.toggle('active', formatting.align === 'right');
+      alignJustify.classList.toggle('active', formatting.align === 'justify');
+
+      // Update status
+      const sel = editor.selection;
+      if (sel.start === sel.end) {
+        status.textContent = `Cursor at position ${sel.start}`;
+      } else {
+        status.textContent = `Selected: ${sel.start} - ${sel.end} (${sel.end - sel.start} chars)`;
+      }
+    }
+
+    // Update JSON output
+    function updateJson() {
+      const doc = editor.save();
+      // Use a replacer to handle Symbol values (multipleValues returns Symbol for mixed formatting)
+      const replacer = (key, value) => {
+        if (typeof value === 'symbol') {
+          return value.toString();
+        }
+        return value;
+      };
+      jsonOutput.textContent = JSON.stringify(doc, replacer, 2);
+    }
+
+    // Event listeners
+    btnBold.onclick = () => toggleFormat('bold');
+    btnItalic.onclick = () => toggleFormat('italic');
+    btnUnderline.onclick = () => toggleFormat('underline');
+    btnStrike.onclick = () => toggleFormat('strikeout');
+
+    fontSize.onchange = () => setFormat('size', parseInt(fontSize.value));
+    fontFamily.onchange = () => setFormat('font', fontFamily.value);
+    fontColor.onchange = () => setFormat('color', fontColor.value);
+
+    btnUndo.onclick = () => { editor.performUndo(); updateJson(); };
+    btnRedo.onclick = () => { editor.performUndo(true); updateJson(); };
+
+    // Alignment buttons
+    document.getElementById('btn-align-left').onclick = () => setFormat('align', 'left');
+    document.getElementById('btn-align-center').onclick = () => setFormat('align', 'center');
+    document.getElementById('btn-align-right').onclick = () => setFormat('align', 'right');
+    document.getElementById('btn-align-justify').onclick = () => setFormat('align', 'justify');
+
+    // Listen for selection changes (Phase 2 API uses on/off pattern)
+    editor.on('selectionChange', updateToolbar);
+    editor.on('change', updateJson);
+
+    // Initial state
+    updateToolbar();
+    updateJson();
+
+    // Handle window resize (Phase 2: width is a property, not a method)
+    window.addEventListener('resize', () => {
+      editor.width = container.clientWidth;
+    });
+
+    console.log('Carota editor initialized!', editor);
+  </script>
+</body>
+</html>

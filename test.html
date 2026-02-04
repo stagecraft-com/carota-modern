@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Carota Debug Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #log {
+      background: #f5f5f5;
+      padding: 10px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 500px;
+      overflow-y: auto;
+      font-size: 12px;
+    }
+    #canvas { border: 1px solid #ccc; margin-top: 20px; background: white; }
+    .pass { color: green; }
+    .fail { color: red; }
+    h2 { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Carota Debug Test</h1>
+  <p>Open browser console for detailed logs.</p>
+  <div id="log"></div>
+  <h2>Canvas Output</h2>
+  <canvas id="canvas" width="500" height="200"></canvas>
+
+  <script type="module">
+    const logEl = document.getElementById('log');
+
+    const log = (msg, type = 'info') => {
+      const line = document.createElement('div');
+      line.textContent = msg;
+      if (type === 'pass') line.className = 'pass';
+      if (type === 'fail') line.className = 'fail';
+      logEl.appendChild(line);
+      console.log(msg);
+    };
+
+    const pass = (msg) => log('✅ ' + msg, 'pass');
+    const fail = (msg) => log('❌ ' + msg, 'fail');
+
+    // Wait for fonts to be ready
+    log('Waiting for fonts to load...');
+    await document.fonts.ready;
+    log('Fonts ready!\n');
+
+    // Dynamic import to catch module load errors
+    let carota;
+    try {
+      carota = await import('./dist/carota.js');
+      log('Carota module loaded successfully');
+      log('Exports: ' + Object.keys(carota).join(', '));
+    } catch (e) {
+      fail('Failed to load Carota module: ' + e.message);
+      console.error(e);
+      throw e;
+    }
+
+    const { createDocument } = carota;
+
+    // Check if measureText and getRunStyle are exported
+    const measureText = carota.measureText;
+    const getRunStyle = carota.getRunStyle;
+
+    log('\n=== Test 1: Check Exports ===');
+    if (measureText) {
+      pass('measureText is exported');
+    } else {
+      fail('measureText is NOT exported - need to add to index.ts');
+    }
+
+    if (getRunStyle) {
+      pass('getRunStyle is exported');
+    } else {
+      fail('getRunStyle is NOT exported - need to add to index.ts');
+    }
+
+    log('\n=== Test 2: Raw measureText ===');
+    if (measureText && getRunStyle) {
+      try {
+        const style = getRunStyle({ size: 16, font: 'Arial' });
+        log('Style string: "' + style + '"');
+
+        const result = measureText('Hello', style);
+        log('measureText("Hello") result:');
+        log('  width: ' + result.width);
+        log('  height: ' + result.height);
+        log('  ascent: ' + result.ascent);
+        log('  descent: ' + result.descent);
+
+        if (result.width > 0 && result.ascent > 0) {
+          pass('measureText returned valid dimensions');
+        } else {
+          fail('measureText returned zero/invalid dimensions');
+        }
+      } catch (e) {
+        fail('measureText error: ' + e.message);
+        console.error(e);
+      }
+    } else {
+      log('Skipping - exports not available');
+    }
+
+    log('\n=== Test 3: Create Empty Document ===');
+    try {
+      const doc = createDocument({ width: 500 });
+      log('Document created');
+      log('  doc.width: ' + doc.width);
+      log('  doc.frame: ' + (doc.frame ? 'EXISTS' : 'null'));
+
+      if (doc.width === 500) {
+        pass('Document width set correctly');
+      } else {
+        fail('Document width incorrect');
+      }
+    } catch (e) {
+      fail('createDocument error: ' + e.message);
+      console.error(e);
+    }
+
+    log('\n=== Test 4: Load Simple Text ===');
+    try {
+      const doc = createDocument({ width: 500 });
+      log('Calling doc.load([{ text: "Hello World" }])...');
+
+      doc.load([{ text: 'Hello World' }]);
+
+      log('After load:');
+      log('  doc.frame: ' + (doc.frame ? 'EXISTS' : 'NULL'));
+
+      if (doc.frame) {
+        const bounds = doc.frame.bounds();
+        log('  frame.bounds(): ' + JSON.stringify(bounds));
+        log('  doc.height: ' + doc.height);
+        pass('Document loaded with valid frame');
+      } else {
+        fail('doc.frame is NULL after load - THIS IS THE BUG');
+      }
+    } catch (e) {
+      fail('Load error: ' + e.message);
+      console.error(e);
+    }
+
+    log('\n=== Test 5: Load and Render ===');
+    try {
+      const doc = createDocument({ width: 500 });
+      doc.load([{ text: 'Hello World - Rendered Text' }]);
+
+      if (doc.frame) {
+        const canvas = document.getElementById('canvas');
+        canvas.height = Math.max(doc.height + 20, 50);
+
+        doc.render({ canvas, dpr: window.devicePixelRatio || 1 });
+        pass('Rendered to canvas - check visual output below');
+      } else {
+        fail('Cannot render - frame is null');
+      }
+    } catch (e) {
+      fail('Render error: ' + e.message);
+      console.error(e);
+    }
+
+    log('\n=== Test 6: Multiple Content Types ===');
+    const testCases = [
+      { name: 'Plain text', content: [{ text: 'Simple' }] },
+      { name: 'Bold text', content: [{ text: 'Bold', bold: true }] },
+      { name: 'Italic text', content: [{ text: 'Italic', italic: true }] },
+      { name: 'Mixed', content: [{ text: 'Normal ' }, { text: 'Bold', bold: true }] },
+      { name: 'Multiline', content: [{ text: 'Line 1\nLine 2' }] },
+      { name: 'Long text', content: [{ text: 'This is a longer piece of text that should wrap to multiple lines when the width is constrained.' }] },
+    ];
+
+    for (const test of testCases) {
+      try {
+        const doc = createDocument({ width: 300 });
+        doc.load(test.content);
+
+        if (doc.frame) {
+          pass(test.name + ' - frame exists, height: ' + doc.height);
+        } else {
+          fail(test.name + ' - frame is NULL');
+        }
+      } catch (e) {
+        fail(test.name + ' - error: ' + e.message);
+      }
+    }
+
+    log('\n=== Tests Complete ===');
+  </script>
+</body>
+</html>
