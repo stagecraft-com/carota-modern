@@ -135,12 +135,14 @@ doc.height: number // read-only, calculated from content
 
 ## Demo
 
-Open `demo.html` in a browser to see the interactive editor in action.
+A `demo.html` file is included. After cloning the repo:
 
 ```bash
-npx serve .
-# Open http://localhost:3000/demo.html
+npm install
+npm run dev
 ```
+
+Then open the URL shown in your terminal (usually `http://localhost:5173/demo.html`).
 
 ## Credits
 
